@@ -1,0 +1,35 @@
+[versions]
+google-auth        = "1.23.0"
+google-apis-sheets = "v4-rev20240514-2.0.0"
+google-http-client = "1.44.1"
+jackson            = "2.17.1"
+junit5             = "5.11.0"
+junit-platform     = "1.11.0"
+testng             = "7.10.2"
+cucumber           = "7.18.0"
+playwright         = "1.44.0"
+mockito            = "5.12.0"
+assertj            = "3.26.0"
+
+[libraries]
+google-auth-library         = { module = "com.google.auth:google-auth-library-oauth2-http", version.ref = "google-auth" }
+google-apis-sheets          = { module = "com.google.apis:google-api-services-sheets", version.ref = "google-apis-sheets" }
+google-http-client-jackson  = { module = "com.google.http-client:google-http-client-jackson2", version.ref = "google-http-client" }
+jackson-databind            = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
+
+junit5-api                  = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit5" }
+junit5-engine               = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit5" }
+junit5-params               = { module = "org.junit.jupiter:junit-jupiter-params", version.ref = "junit5" }
+junit-platform-launcher     = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junit-platform" }
+junit-platform-engine       = { module = "org.junit.platform:junit-platform-engine", version.ref = "junit-platform" }
+
+testng                      = { module = "org.testng:testng", version.ref = "testng" }
+
+cucumber-java               = { module = "io.cucumber:cucumber-java", version.ref = "cucumber" }
+cucumber-junit5             = { module = "io.cucumber:cucumber-junit-platform-engine", version.ref = "cucumber" }
+cucumber-core               = { module = "io.cucumber:cucumber-core", version.ref = "cucumber" }
+
+playwright                  = { module = "com.microsoft.playwright:playwright", version.ref = "playwright" }
+
+mockito-core                = { module = "org.mockito:mockito-core", version.ref = "mockito" }
+assertj-core                = { module = "org.assertj:assertj-core", version.ref = "assertj" }

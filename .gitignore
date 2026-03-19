@@ -1,0 +1,27 @@
+# Gradle
+.gradle/
+build/
+*/build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Credentials — never commit
+service-account-skipper-bot.json
+*.json.bak
+
+# Environment
+.env
+.env.local
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.class
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test output
+TestResults/
+test-results/

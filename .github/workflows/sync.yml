@@ -1,0 +1,33 @@
+name: Sync
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  sync:
+    name: Sync spreadsheet
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build
+        run: ./gradlew build -x test
+
+      - name: Run tests in sync mode
+        run: ./gradlew test
+        env:
+          SKIPPER_MODE: sync
+          GOOGLE_CREDS_B64: ${{ secrets.GOOGLE_CREDS_B64 }}
+          SKIPPER_SPREADSHEET_ID: ${{ secrets.SKIPPER_SPREADSHEET_ID }}
+          SKIPPER_SHEET_NAME: skipper-java
