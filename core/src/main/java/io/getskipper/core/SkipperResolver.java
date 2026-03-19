@@ -16,7 +16,7 @@ import java.util.Map;
  * and populate the in-memory cache. Then call {@link #isTestEnabled(String)} for each test.
  *
  * <p>The cache can be serialized with {@link #marshalCache()} and restored with
- * {@link #fromMarshaledCache(byte[])} for sharing across JVM processes (e.g. Gradle workers).
+ * {@link #fromMarshaledCache(byte[], SkipperConfig)} for sharing across JVM processes (e.g. Gradle workers).
  */
 public final class SkipperResolver {
 
