@@ -1,6 +1,6 @@
 val skipperVersion = project.findProperty("version")?.toString()
     ?.takeIf { it != "unspecified" }
-    ?: "0.1.0"
+    ?: "1.1.0"
 
 subprojects {
     apply(plugin = "java-library")

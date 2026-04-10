@@ -40,7 +40,7 @@ repositories {
 }
 
 dependencies {
-    testImplementation("io.getskipper:skipper-junit5:0.1.0")
+    testImplementation("io.getskipper:skipper-junit5:1.1.0")
 }
 ```
 
@@ -68,7 +68,7 @@ Run:
 
 ```kotlin
 dependencies {
-    testImplementation("io.getskipper:skipper-testng:0.1.0")
+    testImplementation("io.getskipper:skipper-testng:1.1.0")
 }
 ```
 
@@ -84,7 +84,7 @@ In `testng.xml`:
 
 ```kotlin
 dependencies {
-    testImplementation("io.getskipper:skipper-cucumber:0.1.0")
+    testImplementation("io.getskipper:skipper-cucumber:1.1.0")
 }
 ```
 
@@ -98,7 +98,7 @@ In `@CucumberOptions`:
 
 ```kotlin
 dependencies {
-    testImplementation("io.getskipper:skipper-playwright:0.1.0")
+    testImplementation("io.getskipper:skipper-playwright:1.1.0")
     testImplementation("com.microsoft.playwright:playwright:1.44.0")
 }
 ```
