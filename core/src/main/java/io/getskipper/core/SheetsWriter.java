@@ -1,6 +1,10 @@
 package io.getskipper.core;
 
 import com.google.api.services.sheets.v4.Sheets;
+import com.google.api.services.sheets.v4.model.BatchUpdateSpreadsheetRequest;
+import com.google.api.services.sheets.v4.model.DeleteDimensionRequest;
+import com.google.api.services.sheets.v4.model.DimensionRange;
+import com.google.api.services.sheets.v4.model.Request;
 import com.google.api.services.sheets.v4.model.ValueRange;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -37,9 +41,15 @@ public final class SheetsWriter {
     }
 
     /**
-     * Appends any discovered test IDs that are not yet in the sheet.
-     * Existing rows are never deleted, making this operation safe to call from multiple
-     * Gradle test tasks in a multi-module build.
+     * Reconciles the spreadsheet with the test IDs discovered during a test run.
+     *
+     * <ul>
+     *   <li>Appends rows for test IDs not yet in the sheet.</li>
+     *   <li>Detects orphaned rows (IDs in the sheet that were not discovered). By default
+     *       these are logged but <em>not</em> deleted, making sync safe for multi-module
+     *       projects where different Gradle tasks each contribute a subset of the full suite.
+     *       Set {@code SKIPPER_SYNC_ALLOW_DELETE=true} to actually prune them.</li>
+     * </ul>
      *
      * @param discoveredTestIds all test IDs discovered during the test run
      */
@@ -55,11 +65,46 @@ public final class SheetsWriter {
         List<String> header = primary.header();
         int testIdColIdx = indexOf(header, config.testIdColumn());
 
+        Set<String> discoveredNormalized = new HashSet<>();
+        for (String id : discoveredTestIds) {
+            discoveredNormalized.add(TestIdHelper.normalize(id));
+        }
+
         Set<String> existingIds = new HashSet<>();
         for (TestEntry entry : primary.entries()) {
             existingIds.add(TestIdHelper.normalize(entry.testId()));
         }
 
+        // Detect orphaned rows (in sheet but not in discoveredTestIds).
+        // rawRows[0] is the header; data rows start at index 1.
+        List<Integer> orphanedRowIndices = new ArrayList<>();
+        List<List<Object>> rawRows = primary.rawRows();
+        for (int i = 1; i < rawRows.size(); i++) {
+            List<Object> row = rawRows.get(i);
+            if (testIdColIdx >= row.size()) continue;
+            Object cell = row.get(testIdColIdx);
+            if (cell == null) continue;
+            String id = cell.toString().strip();
+            if (id.isBlank()) continue;
+            if (!discoveredNormalized.contains(TestIdHelper.normalize(id))) {
+                orphanedRowIndices.add(i);
+            }
+        }
+
+        // Handle orphaned rows.
+        boolean allowDeletes = "true".equalsIgnoreCase(System.getenv("SKIPPER_SYNC_ALLOW_DELETE"));
+        if (!orphanedRowIndices.isEmpty()) {
+            if (!allowDeletes) {
+                SkipperLogger.logf("[skipper] %d orphaned row(s) found in \"%s\".",
+                        orphanedRowIndices.size(), sheetName);
+                SkipperLogger.log("[skipper] Set SKIPPER_SYNC_ALLOW_DELETE=true to prune them.");
+            } else {
+                deleteRows(spreadsheetId, primary.sheetId(), orphanedRowIndices);
+                SkipperLogger.logf("Sync: deleted %d orphaned row(s).", orphanedRowIndices.size());
+            }
+        }
+
+        // Append new test IDs.
         Set<String> toAdd = new LinkedHashSet<>();
         for (String id : discoveredTestIds) {
             if (!existingIds.contains(TestIdHelper.normalize(id))) {
@@ -68,7 +113,7 @@ public final class SheetsWriter {
         }
 
         if (toAdd.isEmpty()) {
-            SkipperLogger.log("Sync: spreadsheet is already up to date.");
+            SkipperLogger.log("Sync: no new test IDs to append.");
             return;
         }
 
@@ -85,6 +130,29 @@ public final class SheetsWriter {
                 .setValueInputOption("USER_ENTERED")
                 .execute();
         SkipperLogger.logf("Sync: appended %d new test ID(s).", toAdd.size());
+    }
+
+    /**
+     * Deletes the specified sheet rows (0-based indices) in a single batch update.
+     * Rows are deleted in reverse order so earlier indices remain valid after each deletion.
+     */
+    private void deleteRows(String spreadsheetId, int sheetId, List<Integer> rowIndices)
+            throws IOException {
+        List<Request> requests = new ArrayList<>();
+        // Iterate in reverse to avoid index shifting
+        for (int i = rowIndices.size() - 1; i >= 0; i--) {
+            int idx = rowIndices.get(i);
+            requests.add(new Request().setDeleteDimension(
+                    new DeleteDimensionRequest().setRange(
+                            new DimensionRange()
+                                    .setSheetId(sheetId)
+                                    .setDimension("ROWS")
+                                    .setStartIndex(idx)
+                                    .setEndIndex(idx + 1))));
+        }
+        service.spreadsheets()
+                .batchUpdate(spreadsheetId, new BatchUpdateSpreadsheetRequest().setRequests(requests))
+                .execute();
     }
 
     private static int indexOf(List<String> header, String column) {
