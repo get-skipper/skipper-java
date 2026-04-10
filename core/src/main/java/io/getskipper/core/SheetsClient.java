@@ -16,14 +16,12 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * Reads test entries from a Google Sheets spreadsheet using a service account.
@@ -31,11 +29,7 @@ import java.util.Map;
 public final class SheetsClient {
 
     private static final String APPLICATION_NAME = "skipper-java";
-    private static final DateTimeFormatter DATE_ONLY = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-    private static final DateTimeFormatter DATE_TIME_UTC =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'");
-    private static final DateTimeFormatter DATE_TIME_NO_TZ =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+    private static final Pattern DATE_RE = Pattern.compile("^\\d{4}-\\d{2}-\\d{2}$");
 
     private final SkipperConfig config;
 
@@ -168,11 +162,7 @@ public final class SheetsClient {
                     && row.get(disabledUntilIdx) != null) {
                 String raw = row.get(disabledUntilIdx).toString().strip();
                 if (!raw.isBlank()) {
-                    disabledUntil = parseDate(raw);
-                    if (disabledUntil == null) {
-                        SkipperLogger.warn("Row " + (i + 1) + " in \"" + sheetName
-                                + "\": invalid date \"" + raw + "\" — treating test as enabled.");
-                    }
+                    disabledUntil = parseDate(raw, i + 1, sheetName);
                 }
             }
 
@@ -233,25 +223,33 @@ public final class SheetsClient {
         return -1;
     }
 
-    private static Instant parseDate(String s) {
-        // Try "yyyy-MM-dd" → treat as end-of-day UTC so the full day is disabled
-        try {
-            LocalDate date = LocalDate.parse(s, DATE_ONLY);
-            return date.atTime(23, 59, 59).toInstant(ZoneOffset.UTC);
-        } catch (DateTimeParseException ignored) {}
-
-        // Try "yyyy-MM-dd'T'HH:mm:ss'Z'"
-        try {
-            LocalDateTime dt = LocalDateTime.parse(s, DATE_TIME_UTC);
-            return dt.toInstant(ZoneOffset.UTC);
-        } catch (DateTimeParseException ignored) {}
-
-        // Try "yyyy-MM-dd'T'HH:mm:ss"
-        try {
-            LocalDateTime dt = LocalDateTime.parse(s, DATE_TIME_NO_TZ);
-            return dt.toInstant(ZoneOffset.UTC);
-        } catch (DateTimeParseException ignored) {}
-
-        return null;
+    /**
+     * Parses a {@code disabledUntil} date string.
+     *
+     * <p>Only {@code YYYY-MM-DD} is accepted. Malformed values throw immediately so bad
+     * spreadsheet data is caught at startup, not silently mid-run.
+     *
+     * <p>The returned instant is the start of the <em>following</em> UTC day, so a test
+     * marked disabled until {@code 2026-04-01} remains disabled through the end of that
+     * calendar day (UTC) and re-enables at {@code 2026-04-02T00:00:00Z}. This comparison
+     * is timezone-independent: {@code Instant.now().isBefore(result)} yields the same
+     * answer on every CI runner regardless of JVM default timezone.
+     *
+     * @param raw      raw cell value
+     * @param rowNum   1-based row number, used in the error message
+     * @param sheetName sheet name, used in the error message
+     * @return the expiry instant, or {@code null} if {@code raw} is null or blank
+     * @throws IllegalArgumentException if {@code raw} does not match {@code YYYY-MM-DD}
+     */
+    static Instant parseDate(String raw, int rowNum, String sheetName) {
+        if (raw == null || raw.isBlank()) return null;
+        String trimmed = raw.strip();
+        if (!DATE_RE.matcher(trimmed).matches()) {
+            throw new IllegalArgumentException(
+                    "[skipper] Row " + rowNum + " in \"" + sheetName
+                            + "\": invalid disabledUntil \"" + raw + "\". Use YYYY-MM-DD.");
+        }
+        LocalDate date = LocalDate.parse(trimmed);
+        return date.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
     }
 }
