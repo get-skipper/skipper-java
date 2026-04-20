@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-04-20
+
+### Added
+
+- **Quarantine debt CI summary** (`SkipperReporter`): at the end of every test run Skipper emits a structured quarantine report automatically — no extra configuration needed.
+  - Markdown summary is appended to `GITHUB_STEP_SUMMARY` when the env var is set; otherwise it is printed to stdout.
+  - `skipper-report.json` is always written to the working directory for archiving and downstream tooling.
+  - Report includes: currently suppressed test count, tests expiring within 7 days, tests re-enabled this run (expired suppressions), and quarantine-days of debt (Σ `disabledUntil − today` across all active suppressions).
+- `QuarantineReport` record in `skipper-core` — the data model for the above report.
+- `SkipperReporter` class in `skipper-core` — builds and emits the report; callable independently from custom listeners.
+
 ## [1.1.0] - 2026-04-10
 
 ### Added
@@ -42,5 +53,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for `SKIPPER_MODE=sync` to reconcile the spreadsheet after each test run.
 - Support for credentials via `GOOGLE_CREDS_B64` (base64-encoded JSON) or `SKIPPER_CREDENTIALS_FILE` (file path).
 
+[1.2.0]: https://github.com/get-skipper/skipper-java/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/get-skipper/skipper-java/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/get-skipper/skipper-java/releases/tag/v1.0.0

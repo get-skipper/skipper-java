@@ -215,6 +215,14 @@ public final class SkipperResolver {
         return resolver;
     }
 
+    /**
+     * Returns an unmodifiable view of the in-memory cache, mapping normalized test IDs to their
+     * {@code disabledUntil} instants. Used by {@link SkipperReporter} to build the quarantine report.
+     */
+    public Map<String, Instant> getCacheEntries() {
+        return cache != null ? Collections.unmodifiableMap(cache) : Collections.emptyMap();
+    }
+
     /** Serializes an empty cache (for testing). */
     byte[] marshalEmptyCache() throws IOException {
         if (cache == null) cache = new HashMap<>();

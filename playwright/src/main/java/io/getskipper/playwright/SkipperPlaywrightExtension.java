@@ -3,9 +3,11 @@ package io.getskipper.playwright;
 import com.microsoft.playwright.Browser;
 import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.Playwright;
+import io.getskipper.core.QuarantineReport;
 import io.getskipper.core.SkipperConfig;
 import io.getskipper.core.SkipperLogger;
 import io.getskipper.core.SkipperMode;
+import io.getskipper.core.SkipperReporter;
 import io.getskipper.core.SkipperResolver;
 import io.getskipper.core.SheetsWriter;
 import io.getskipper.core.TestIdHelper;
@@ -84,18 +86,26 @@ public class SkipperPlaywrightExtension
     public void afterAll(ExtensionContext context) throws Exception {
         Store store = context.getStore(NS);
 
-        // Sync if in sync mode
-        if (SkipperMode.fromEnvironment() == SkipperMode.SYNC) {
-            SkipperResolver resolver = SkipperState.getResolver();
-            SkipperConfig config = SkipperState.getConfig();
-            if (resolver != null && config != null) {
-                try {
-                    SheetsWriter writer = new SheetsWriter(config, resolver.getSheetsService());
-                    writer.sync(SkipperState.getDiscoveredIds());
-                    SkipperLogger.log("Skipper sync completed.");
-                } catch (Exception e) {
-                    System.err.println("[skipper] Sync failed: " + e.getMessage());
-                }
+        SkipperResolver resolver = SkipperState.getResolver();
+        SkipperConfig config = SkipperState.getConfig();
+
+        if (SkipperMode.fromEnvironment() == SkipperMode.SYNC
+                && resolver != null && config != null) {
+            try {
+                SheetsWriter writer = new SheetsWriter(config, resolver.getSheetsService());
+                writer.sync(SkipperState.getDiscoveredIds());
+                SkipperLogger.log("Skipper sync completed.");
+            } catch (Exception e) {
+                System.err.println("[skipper] Sync failed: " + e.getMessage());
+            }
+        }
+
+        if (resolver != null) {
+            try {
+                QuarantineReport report = SkipperReporter.buildReport(resolver);
+                SkipperReporter.emitSummary(report);
+            } catch (Exception e) {
+                System.err.println("[skipper] Could not emit quarantine report: " + e.getMessage());
             }
         }
 

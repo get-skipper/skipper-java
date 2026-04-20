@@ -1,8 +1,10 @@
 package io.getskipper.testng;
 
+import io.getskipper.core.QuarantineReport;
 import io.getskipper.core.SkipperConfig;
 import io.getskipper.core.SkipperLogger;
 import io.getskipper.core.SkipperMode;
+import io.getskipper.core.SkipperReporter;
 import io.getskipper.core.SkipperResolver;
 import io.getskipper.core.SheetsWriter;
 import io.getskipper.core.TestIdHelper;
@@ -54,19 +56,27 @@ public class SkipperListener implements ISuiteListener, ITestListener {
 
     @Override
     public void onFinish(ISuite suite) {
-        if (SkipperMode.fromEnvironment() != SkipperMode.SYNC) {
-            return;
-        }
         SkipperResolver resolver = SkipperState.getResolver();
         SkipperConfig config = SkipperState.getConfig();
-        if (resolver == null || config == null) return;
 
-        try {
-            SheetsWriter writer = new SheetsWriter(config, resolver.getSheetsService());
-            writer.sync(SkipperState.getDiscoveredIds());
-            SkipperLogger.log("Skipper sync completed.");
-        } catch (Exception e) {
-            System.err.println("[skipper] Sync failed: " + e.getMessage());
+        if (SkipperMode.fromEnvironment() == SkipperMode.SYNC
+                && resolver != null && config != null) {
+            try {
+                SheetsWriter writer = new SheetsWriter(config, resolver.getSheetsService());
+                writer.sync(SkipperState.getDiscoveredIds());
+                SkipperLogger.log("Skipper sync completed.");
+            } catch (Exception e) {
+                System.err.println("[skipper] Sync failed: " + e.getMessage());
+            }
+        }
+
+        if (resolver != null) {
+            try {
+                QuarantineReport report = SkipperReporter.buildReport(resolver);
+                SkipperReporter.emitSummary(report);
+            } catch (Exception e) {
+                System.err.println("[skipper] Could not emit quarantine report: " + e.getMessage());
+            }
         }
     }
 

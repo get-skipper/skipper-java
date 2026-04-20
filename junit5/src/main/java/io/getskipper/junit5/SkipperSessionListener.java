@@ -1,8 +1,10 @@
 package io.getskipper.junit5;
 
+import io.getskipper.core.QuarantineReport;
 import io.getskipper.core.SkipperConfig;
 import io.getskipper.core.SkipperLogger;
 import io.getskipper.core.SkipperMode;
+import io.getskipper.core.SkipperReporter;
 import io.getskipper.core.SkipperResolver;
 import io.getskipper.core.SheetsWriter;
 import java.io.IOException;
@@ -93,32 +95,41 @@ public class SkipperSessionListener implements LauncherSessionListener {
 
     @Override
     public void launcherSessionClosed(LauncherSession session) {
-        if (SkipperMode.fromEnvironment() != SkipperMode.SYNC) {
-            cleanUpTempFiles();
-            return;
-        }
-
         // Use instance fields — not SkipperState — so that tests calling SkipperState.reset()
         // in @AfterEach cannot accidentally clear the session-level resolver.
         SkipperResolver resolver = sessionResolver;
         SkipperConfig config = sessionConfig;
-        if (resolver == null || config == null) {
+
+        if (SkipperMode.fromEnvironment() == SkipperMode.SYNC
+                && resolver != null && config != null) {
+            // Read discovered IDs from temp file (cross-classloader) or fall back to SkipperState.
+            List<String> discoveredIds = readDiscoveredIds();
+            SkipperLogger.logf("Syncing %d discovered test ID(s).", discoveredIds.size());
+
             cleanUpTempFiles();
-            return;
+
+            try {
+                SheetsWriter writer = new SheetsWriter(config, resolver.getSheetsService());
+                writer.sync(discoveredIds);
+                SkipperLogger.log("Skipper sync completed.");
+            } catch (Exception e) {
+                System.err.println("[skipper] Sync failed: " + e.getMessage());
+            }
+        } else {
+            cleanUpTempFiles();
         }
 
-        // Read discovered IDs from temp file (cross-classloader) or fall back to SkipperState.
-        List<String> discoveredIds = readDiscoveredIds();
-        SkipperLogger.logf("Syncing %d discovered test ID(s).", discoveredIds.size());
+        if (resolver != null) {
+            emitQuarantineReport(resolver);
+        }
+    }
 
-        cleanUpTempFiles();
-
+    private static void emitQuarantineReport(SkipperResolver resolver) {
         try {
-            SheetsWriter writer = new SheetsWriter(config, resolver.getSheetsService());
-            writer.sync(discoveredIds);
-            SkipperLogger.log("Skipper sync completed.");
+            QuarantineReport report = SkipperReporter.buildReport(resolver);
+            SkipperReporter.emitSummary(report);
         } catch (Exception e) {
-            System.err.println("[skipper] Sync failed: " + e.getMessage());
+            System.err.println("[skipper] Could not emit quarantine report: " + e.getMessage());
         }
     }
 
